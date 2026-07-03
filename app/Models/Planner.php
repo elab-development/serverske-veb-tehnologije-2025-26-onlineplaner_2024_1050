@@ -48,6 +48,14 @@ class Planner extends Model
     }
 
     /**
+     * @return HasMany<PlannerItem, $this>
+     */
+    public function items(): HasMany
+    {
+        return $this->hasMany(PlannerItem::class);
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
