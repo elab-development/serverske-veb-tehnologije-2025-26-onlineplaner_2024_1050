@@ -23,6 +23,7 @@ class PlannerResource extends JsonResource
             'start_date' => $this->start_date?->toDateString(),
             'end_date' => $this->end_date?->toDateString(),
             'is_active' => $this->is_active,
+            'user' => new UserResource($this->whenLoaded('user')),
             'categories' => PlannerCategoryResource::collection($this->whenLoaded('categories')),
             'items' => PlannerItemResource::collection($this->whenLoaded('items')),
             'created_at' => $this->created_at?->toISOString(),
