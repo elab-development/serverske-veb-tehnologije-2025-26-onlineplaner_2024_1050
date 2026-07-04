@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PlannerCategoryController;
 use App\Http\Controllers\PlannerController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,4 +13,5 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/user', [AuthController::class, 'me']);
 
     Route::apiResource('planners', PlannerController::class);
+    Route::apiResource('planners.categories', PlannerCategoryController::class);
 });
