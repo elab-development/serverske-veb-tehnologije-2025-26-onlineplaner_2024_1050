@@ -12,12 +12,33 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        User::factory()->create([
-            'name' => 'Admin User',
-            'email' => 'admin@planner.com',
-            'role' => User::ROLE_ADMIN,
-        ]);
+        $userCases = [
+            [
+                'name' => 'Admin User',
+                'email' => 'admin@planner.com',
+                'role' => User::ROLE_ADMIN,
+            ],
+            [
+                'name' => 'Mila Novak',
+                'email' => 'mila.novak@example.com',
+                'role' => User::ROLE_USER,
+            ],
+            [
+                'name' => 'Luka Petrovic',
+                'email' => 'luka.petrovic@example.com',
+                'role' => User::ROLE_USER,
+            ],
+            [
+                'name' => 'Sara Jovanovic',
+                'email' => 'sara.jovanovic@example.com',
+                'role' => User::ROLE_USER,
+            ],
+        ];
 
-        User::factory(10)->create();
+        foreach ($userCases as $userCase) {
+            User::factory()->create($userCase);
+        }
+
+        User::factory(7)->create();
     }
 }
