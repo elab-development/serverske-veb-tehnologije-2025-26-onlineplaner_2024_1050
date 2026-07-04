@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\PlannerCategoryController;
 use App\Http\Controllers\PlannerController;
+use App\Http\Controllers\PlannerItemController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/register', [AuthController::class, 'register']);
@@ -14,4 +15,5 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::apiResource('planners', PlannerController::class);
     Route::apiResource('planners.categories', PlannerCategoryController::class);
+    Route::apiResource('planners.items', PlannerItemController::class);
 });
