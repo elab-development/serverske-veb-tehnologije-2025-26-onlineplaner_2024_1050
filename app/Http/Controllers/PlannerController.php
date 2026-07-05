@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PlannerController extends Controller
 {
@@ -35,6 +36,7 @@ class PlannerController extends Controller
         $validated = $request->validate([
             'search' => ['sometimes', 'string', 'max:255'],
             'type' => ['sometimes', Rule::in(self::TYPES)],
+            'is_active' => ['sometimes', 'boolean'],
             'user_id' => ['sometimes', 'integer', 'exists:users,id'],
             'starts_from' => ['sometimes', 'date'],
             'starts_until' => ['sometimes', 'date'],
@@ -131,6 +133,131 @@ class PlannerController extends Controller
                 'ends_until',
             ]),
             'planners' => PlannerResource::collection($planners->getCollection()),
+        ]);
+    }
+
+    public function exportCsv(Request $request): JsonResponse|StreamedResponse
+    {
+        $validated = $request->validate([
+            'search' => ['sometimes', 'string', 'max:255'],
+            'type' => ['sometimes', Rule::in(self::TYPES)],
+            'is_active' => ['sometimes', 'boolean'],
+            'user_id' => ['sometimes', 'integer', 'exists:users,id'],
+            'starts_from' => ['sometimes', 'date'],
+            'starts_until' => ['sometimes', 'date'],
+            'ends_from' => ['sometimes', 'date'],
+            'ends_until' => ['sometimes', 'date'],
+        ]);
+
+        $user = $request->user();
+
+        if (! $this->isAdmin($request) && isset($validated['user_id']) && (int) $validated['user_id'] !== $user->id) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $query = Planner::query()
+            ->with('user')
+            ->withCount(['categories', 'items']);
+
+        if (! $this->isAdmin($request)) {
+            $query->where('user_id', $user->id);
+        }
+
+        if (! empty($validated['search'])) {
+            $search = $validated['search'];
+
+            $query->where(function ($query) use ($request, $search) {
+                $query->where('title', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhereHas('categories', function ($query) use ($search) {
+                        $query->where('name', 'like', "%{$search}%");
+                    });
+
+                if ($this->isAdmin($request)) {
+                    $query->orWhereHas('user', function ($query) use ($search) {
+                        $query->where('name', 'like', "%{$search}%")
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
+                }
+            });
+        }
+
+        if (isset($validated['type'])) {
+            $query->where('type', $validated['type']);
+        }
+
+        if (array_key_exists('is_active', $validated)) {
+            $query->where('is_active', $validated['is_active']);
+        }
+
+        if ($this->isAdmin($request) && isset($validated['user_id'])) {
+            $query->where('user_id', $validated['user_id']);
+        }
+
+        if (isset($validated['starts_from'])) {
+            $query->where('start_date', '>=', $validated['starts_from']);
+        }
+
+        if (isset($validated['starts_until'])) {
+            $query->where('start_date', '<=', $validated['starts_until']);
+        }
+
+        if (isset($validated['ends_from'])) {
+            $query->where('end_date', '>=', $validated['ends_from']);
+        }
+
+        if (isset($validated['ends_until'])) {
+            $query->where('end_date', '<=', $validated['ends_until']);
+        }
+
+        $filename = 'planners-' . now()->format('Y-m-d-H-i-s') . '.csv';
+
+        return response()->streamDownload(function () use ($query): void {
+            $handle = fopen('php://output', 'w');
+
+            fputcsv($handle, [
+                'id',
+                'user_id',
+                'user_name',
+                'user_email',
+                'title',
+                'description',
+                'type',
+                'start_date',
+                'end_date',
+                'is_active',
+                'categories_count',
+                'items_count',
+                'created_at',
+                'updated_at',
+            ]);
+
+            $query
+                ->orderBy('created_at')
+                ->chunk(200, function ($planners) use ($handle): void {
+                    foreach ($planners as $planner) {
+                        fputcsv($handle, [
+                            $planner->id,
+                            $planner->user_id,
+                            $planner->user?->name,
+                            $planner->user?->email,
+                            $planner->title,
+                            $planner->description,
+                            $planner->type,
+                            $planner->start_date?->toDateString(),
+                            $planner->end_date?->toDateString(),
+                            $planner->is_active ? 'yes' : 'no',
+                            $planner->categories_count,
+                            $planner->items_count,
+                            $planner->created_at?->toDateTimeString(),
+                            $planner->updated_at?->toDateTimeString(),
+                        ]);
+                    }
+                });
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
     }
 
